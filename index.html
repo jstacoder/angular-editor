@@ -1,0 +1,89 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="bootstrap.css" />
+        <style>
+            .ace_editor {
+                height:200px;
+            }
+        </style>
+    </head>
+    <body ng-app='app'>
+        <nav-bar></nav-bar>
+        <div class=container>
+            <div class=row>
+                <div class="col-md-6 col-md-offset-3">
+                    <div class="thumbnail">
+                            <section>
+                                <div ui-ace=cfg ng-model="aceModel">
+                                    Ace here
+                                </div>
+                            </section>
+                            <div class=caption>
+                                <div class="btn-group btn-group-justified">
+                                    <div class="btn-group">
+                                        <button class="btn btn-default">save</button>
+                                    </div>
+                                    <div class=btn-group>
+                                        <button class="btn btn-default">Clear changes</button>
+                                    </div>
+                                    <div class=btn-group>
+                                        <button class="btn btn-default">Show changes</button>
+                                    </div>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+            </div>
+        <pre>
+        <div ng-bind="aceModel"></div>
+        </pre>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
+        <script src="angular.js"></script>
+        <script src="ui-ace.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.tpl.min.js"></script>
+        <script>
+            var app = angular.module('app',['ui.ace','mgcrea.ngStrap']);                    
+            app.run(['$rootScope',function($rootScope){
+                $rootScope.cfg = {
+                    useWrapMode:true,
+                    lineNumbers:true,
+                    showGutter:true,
+                    theme:'twilight',
+                    mode:'javascript'
+                };
+            }]);
+            app.directive('navBar',['$location',function($location){
+                return {
+                    restrict:"E",
+                    scope:{
+                        sitelogo:"@"
+                    },
+                    templateUrl:"navbar.html",
+                    controller:['$scope',function($scope){
+                        $scope.sitelogo = 'hiya';
+                    }],
+                    link:function(scope,ele,attrs){
+                        scope.dropdowns = [];
+                        scope.dropdowns.push(
+                            [
+                                {
+                                    "text":"test1",
+                                    "href":"ttt"
+                                },
+                                {
+                                    "divider":true
+                                },
+                                {
+                                    "text":"tst2",
+                                    "click":"console.log('Holy hell!')"
+                                }
+                            ]                                    
+                        );
+                    }
+                };
+            }]);
+        </script>
+    </body>
+</html>
