@@ -7,44 +7,65 @@
             }
         </style>
     </head>
-    <body ng-app='app'>
+    <body ng-app='app' ng-controller="MainCtrl as ctrl">
         <nav-bar></nav-bar>
         <div class=container>
             <div class=row>
-                <div class="col-md-6 col-md-offset-3">
-                    <div class="thumbnail">
-                            <section>
-                                <div ui-ace=cfg ng-model="aceModel">
-                                    Ace here
+                <div class=col-md-5>
+                    <ul>
+                        <li ng-repeat="user in ctrl.users">
+                            <p>{{ user.username }}</p>
+                            <a ng-click="ctrl.get_projects(user._id.$oid)">{{ user._id.$oid }}</a>
+                        </li>
+                    </ul>
+                    <div class=col-md-12>
+                        <ul>
+                            <li ng-repeat="proj in ctrl.projects">
+                                <div class=col-md-8>
+                                    <p ng-click="ctrl.get_files(proj._id.$oid)">{{ proj.name }}</p>
+                                    <ul ng-repeat="file in ctrl.files track by $index">
+                                        <li ng-click="ctrl.set_file(file)">{{ file.name }}</li>
+                                    </ul>
                                 </div>
-                            </section>
-                            <div class=caption>
-                                <div class="btn-group btn-group-justified">
-                                    <div class="btn-group">
-                                        <button class="btn btn-default">save</button>
-                                    </div>
-                                    <div class=btn-group>
-                                        <button class="btn btn-default">Clear changes</button>
-                                    </div>
-                                    <div class=btn-group>
-                                        <button class="btn btn-default">Show changes</button>
-                                    </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="thumbnail">
+                        <section ng-show="ctrl.showEditor">
+                            <div ui-ace=cfg ng-model="editorData.content">
+                                Ace here
+                            </div>
+                        </section>
+                        <div class=caption>                        
+                            <div class="btn-group btn-group-justified">
+                                <div class="btn-group">
+                                    <button class="btn btn-default" ng-click="ctrl.save(editorData.content)">save</button>
+                                </div>
+                                <div class=btn-group>
+                                    <button class="btn btn-default">Clear</button>
+                                </div>
+                                <div class=btn-group>
+                                    <button class="btn btn-default" ng-click=ctrl.close()>Close</button>
                                 </div>
                             </div>
+                        </div>
                     </div>
                 </div>
             </div>
         <pre>
-        <div ng-bind="aceModel"></div>
+        <div ng-bind="editorContent"></div>
         </pre>
         </div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
         <script src="angular.js"></script>
         <script src="ui-ace.js"></script>
+        <script src='_app.js'></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.tpl.min.js"></script>
         <script>
-            var app = angular.module('app',['ui.ace','mgcrea.ngStrap']);                    
+            var app = angular.module('app',['ui.ace','mgcrea.ngStrap','editor.app']);                    
             app.run(['$rootScope',function($rootScope){
                 $rootScope.cfg = {
                     useWrapMode:true,
