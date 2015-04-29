@@ -1,5 +1,6 @@
 from mongoengine import Document,EmbeddedDocument,ReferenceField,EmbeddedDocumentField,StringField,ListField,connect,queryset
 from flask import Flask,request,session,send_file,make_response,Blueprint,jsonify,g
+import os
 import jwt
 import json
 
@@ -10,7 +11,16 @@ app.config['SECRET_KEY'] = 'shhh'
 api = Blueprint('api',__name__,url_prefix='/api/v1')
 
 
-connect('newdb')
+connect('editor_app',host='ds055110.mongolab.com',port=55110,username='editor',password=os.environ.get('MONGOHQ_DB_PASSWORD'))
+
+@app.errorhandler(404)
+def error(err):
+    if not session.get('just_sent',False):
+        rtn = send_file('index.html')
+        session.just_sent = True
+    else:
+        rtn = make_response('')
+    return make_response(''),200
 
 def login(oid):
     session['user_id'] = oid
@@ -24,6 +34,8 @@ class User(Document):
 
     def add_project(self,proj=None,**kwargs):
         if not proj in self.projects:
+            if proj is None:
+                proj = kwargs.pop('project')
             if type(proj) == dict:
                 proj = Project(**proj)
             self.projects.append(proj)
@@ -54,6 +66,13 @@ class Project(Document):
         self.files.append(f)
         return self.save()
 
+@api.route('/files/create',methods=['POST'])
+def _create_file():
+    f = File.from_json(request.data).save()
+    print dir(f.project)
+    print f.project.as_doc()['$ref']
+    return jsonify(result='success',obj=f.to_json())
+
 @api.route('/files/<pid>',methods=['GET'])
 def _files(pid):
     rtn = []
@@ -66,7 +85,7 @@ def _files(pid):
 def save():
     data = json.loads(request.data)
     fle = File.objects.get(id=data['id'])
-    print data['content']
+    #print data['content']
     fle.content = data['content']
     fle = fle.save()
     return jsonify(result='success',fle=fle.to_json())
@@ -110,7 +129,7 @@ def _project():
 def _projects():
     user = get_user()
     if user is not None:
-        print [dir(p) for p in user.projects]
+        #print [dir(p) for p in user.projects]
         projects = [p.to_json() for p in user.projects if hasattr(p,'to_json')]# else Project.objects.get(id=p.id).to_json()]
     else:
         projects = []
