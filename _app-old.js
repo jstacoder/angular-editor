@@ -64,30 +64,33 @@ app.service('allProjects', ["$q", "projects", "users", function($q, projects, us
   var projs, self;
   projs = [];
   self = this;
-  users.then(function(res) {
-    $q.when(self.users = res.data.objects.map(function(itm) {
-      return fromJson(itm);
-    })).then(function() {
-      self.users.map(function(itm) {
-        var oid, _id;
-        _id = itm._id;
-        if (_id) {
-          oid = _id.$oid;
-        } else {
-          oid = false;
-        }
-        if (oid) {
-          projects(oid).then(function(res) {
-            projs.push(res.projects);
-          });
-        }
-      });
-    });
-  });
   self.getProjects = function() {
-    return projs.map(function(itm) {
-      return fromJson(itm[0]);
+    var def = $q.defer();        
+    users.then(function(res) {
+        $q.when(self.users = res.data.objects.map(function(itm) {
+          return fromJson(itm);
+        })).then(function() {
+          self.users.map(function(itm) {
+            var oid, _id;
+            _id = itm._id;
+            if (_id) {
+              oid = _id.$oid;
+            } else {
+              oid = false;
+            }
+            if (oid) {
+              projects(oid).then(function(res) {
+                projs.push(res.projects);
+              });
+            }
+          });
+        });
+    }).then(function(){
+        return def.resolve(projs.map(function(itm) {
+          return fromJson(itm[0]);
+        }));
     });
+    return def.promise;
   };
   self.getProject = function(pid) {
     return projs.filter(function(itm) {
@@ -173,13 +176,20 @@ app.controller('MainCtrl', ["$window", "$scope", "$q", "$rootScope", "users", "p
   var self, update;
   self = this;
   $scope.editorData = {};
-  update = function() {
-    return $scope.projects = forEach(allProjects.getProjects(), function(itm) {
-      return fromJson(itm[0]);
-    });
+  update = function() {        
+        allProjects.getProjects().then(function(res){
+            var rtn = [];
+            forEach(res,function(itm) {
+                  rtn.push(fromJson(itm[0]));
+            });
+            return rtn
+        }).then(function(res){
+            self.projects = res;
+            self.users = allProjects.getUsers();
+        });
   };
   $scope.$watchCollection('projects', function(o, n) {
-    console.log('watching');
+    console.log('watching',n);
     self.projects = n;
     return update();
   });
@@ -202,12 +212,16 @@ app.controller('MainCtrl', ["$window", "$scope", "$q", "$rootScope", "users", "p
   */
 
   self.updateProjects = function() {
-    self.projects = allProjects.getProjects().map(function(itm) {
-      return fromJson(itm);
+    self.projects = [];
+    allProjects.getProjects().then(function(res){
+        res.map(function(itm) {
+            self.projects.push(fromJson(itm));
+        });
+    }).then(function(){;
+        self.users = allProjects.getUsers();
     });
-    return self.users = allProjects.getUsers();
   };
-  self.updateProjects();
+  //self.updateProjects();
   self.get_projects = function(oid) {
     $q.when(projects(oid)).then(function(res) {
       $q.when(res).then(function() {
