@@ -1,0 +1,7 @@
+<h2>{{ item }}</h2>
+<ul>
+    <li ng-repeat="itm in coll">
+        <a ng-href="{{ getUrl(itm) }}" class="btn btn-default btn-lg">{{ itm.name ? itm.name : itm.username }}</a>
+    </li>
+</ul>
+<a href="/dash" class="btn btn-default">Back</a>

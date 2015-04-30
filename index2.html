@@ -1,0 +1,15 @@
+<html ng-app='editor.app'>
+    <head>
+        <base href="/" />
+        <link rel=stylesheet href=bootstrap.css />
+    </head>
+    <body>
+        <div class=container>
+            <ng-view></ng-view>
+            <div ng-controller="footerCtrl" ng-include="'footer.html'"></div>
+        </div>
+        <script src="angular.js"></script>
+        <script src="angular-route.js"></script>
+        <script src="new.js"></script>
+    </body>
+</html>

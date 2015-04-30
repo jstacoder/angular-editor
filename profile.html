@@ -1,0 +1,14 @@
+<h2>{{ item }}</h2>
+<h3>{{ profile.name ? profile.name : profile.username }}</h3>
+<div class=list-group>
+    <div class=list-group-item ng-repeat="(key,val) in profile">
+        <div ng-if="key=='projects'" ng-repeat="proj in val track by $index">
+            p:{{ proj }}
+            <a ng-href="/project/profile/{{ proj.$oid }}">go</a>
+        </div>                               
+        <div ng-if="key!='projects'">
+            {{ key }}:{{ val }}
+        </div>
+    </div>
+</div>
+<a ng-href="/{{ item }}/list" class="btn btn-default">back</a>

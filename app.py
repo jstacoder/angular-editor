@@ -1,26 +1,64 @@
 from mongoengine import Document,EmbeddedDocument,ReferenceField,EmbeddedDocumentField,StringField,ListField,connect,queryset
 from flask import Flask,request,session,send_file,make_response,Blueprint,jsonify,g
+from redis import Redis
+from functools import partial
 import os
 import jwt
 import json
+
+cache = Redis()
+
+_inc_cache = lambda key: cache.incr(key)
+_get_cache = lambda key: cache.get(key)
+
+CACHE_KEY = 'AGEDITCOUNT'
+
+inc_cache = partial(_inc_cache,CACHE_KEY)
+get_cache = partial(_get_cache,CACHE_KEY)
+set_cache = lambda key,val,**kwargs: cache.set(key,val,**kwargs)
+
 
 app = Flask(__name__,static_folder='./',template_folder='./',static_url_path='')
 app.config['SECRET_KEY'] = 'shhh'
 
 
+frontend = Blueprint('front',__name__,url_prefix='/test',subdomain='test-domain')
 api = Blueprint('api',__name__,url_prefix='/api/v1')
 
+
+@app.before_first_request
+def increment_cache():
+    print request.environ
+    ip_key = CACHE_KEY+':remoteip'
+    current_ip = request.environ.get('HTTP_X_FORWARDED_FOR',None) or request.environ.get('HTTP_X_REAL_IP')
+    last_ip = _get_cache(ip_key) or 'save'
+    if last_ip == 'save' or last_ip != current_ip:
+        set_cache(ip_key,current_ip)
+        print current_ip
+        inc_cache()
+    session['current_view_count'] = get_cache()
+
+@api.route('/viewcount')
+def vc():
+    session['current_view_count'] = get_cache()
+    return jsonify(count=session.get('current_view_count',0))
+
+            
+@frontend.route('/')
+def i():
+    return 'hi'
 
 connect('editor_app',host='ds055110.mongolab.com',port=55110,username='editor',password=os.environ.get('MONGOHQ_DB_PASSWORD'))
 
 @app.errorhandler(404)
 def error(err):
     if not session.get('just_sent',False):
-        rtn = send_file('index.html')
+        rtn = send_file('index2.html')
         session.just_sent = True
     else:
         rtn = make_response('')
     return make_response(''),200
+
 
 def login(oid):
     session['user_id'] = oid
@@ -47,7 +85,7 @@ def get_user():
 
 @app.route('/')
 def index():
-    return send_file('index.html')
+    return send_file('index2.html')
 
 
 class File(Document):
@@ -78,7 +116,7 @@ def _files(pid):
     project = Project.objects.get(id=pid)
     for fle in project.files:
         rtn.append(fle)
-    return jsonify(files=[f.to_json() for f in rtn])
+    return jsonify(objects=[f.to_json() for f in rtn])
         
 @api.route('/save',methods=['POST'])
 def save():
@@ -97,6 +135,9 @@ def obj_type(obj_type):
         file=File,
     )[obj_type]
     objects = model.objects.all()
+    res = make_response(json.dumps(dict(objects=[dict(json.loads(o.to_json())) for o in objects])))
+    res.headers['Content-Type'] = 'application/json'
+    return res
     return jsonify(objects=[x.to_json() for x in objects])
 
 @api.route('/user',methods=['POST'])
@@ -142,6 +183,13 @@ def _login():
 
 app.register_blueprint(api)
 
+@app.route('/<catch>')
+@app.route('/<catch>/<path:more>')
+@app.route('/<catch>/<more>/<mmore>')
+def catch(catch,more=None,mmore=None):
+    if more is None or ('.html' in catch or '.js' in catch or '.css' in catch):
+        return send_file(catch)
+    return send_file('index2.html')
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0',port=5555,debug=True)
+    app.run(host='127.0.0.1',port=4555,debug=True)
