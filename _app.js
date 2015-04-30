@@ -1,5 +1,12 @@
 'use strict';
-var app;
+
+var app, equals, forEach, fromJson;
+
+fromJson = angular.fromJson;
+
+equals = angular.equals;
+
+forEach = angular.forEach;
 
 app = angular.module('editor.app', []);
 
@@ -47,6 +54,91 @@ app.factory('projects', ["$q", "$http", "login", function($q, $http, login) {
   };
 }]);
 
+app.factory('createFile', ["$http", function($http) {
+  return function(data) {
+    return $http.post('/api/v1/files/create', data);
+  };
+}]);
+
+app.service('allProjects', ["$q", "projects", "users", function($q, projects, users) {
+  var projs, self;
+  projs = [];
+  self = this;
+  self.getProjects = function() {
+    var def = $q.defer();        
+    users.then(function(res) {
+        $q.when(self.users = res.data.objects.map(function(itm) {
+          return fromJson(itm);
+        })).then(function() {
+          self.users.map(function(itm) {
+            var oid, _id;
+            _id = itm._id;
+            if (_id) {
+              oid = _id.$oid;
+            } else {
+              oid = false;
+            }
+            if (oid) {
+              projects(oid).then(function(res) {
+                projs.push(res.projects);
+              });
+            }
+          });
+        });
+    }).then(function(){
+        return def.resolve(projs.map(function(itm) {
+          return fromJson(itm[0]);
+        }));
+    });
+    return def.promise;
+  };
+  self.getProject = function(pid) {
+    return projs.filter(function(itm) {
+      var id;
+      if (itm._id) {
+        if (itm._id.$oid) {
+          id = itm._id.$oid;
+        } else {
+          id = itm._id;
+        }
+      } else {
+        id = itm.id;
+      }
+      return id === pid;
+    });
+  };
+  self.addFileToProject = function(file, proj) {
+    return forEach(projs, function(itm) {
+      if (equals(itm._id, proj._id)) {
+        itm.files.push(file);
+      }
+    });
+  };
+  self.getUsers = function() {
+    return self.users;
+  };
+}]);
+
+app.factory('makeFile', ["createFile", "allProjects", function(createFile, allProjects) {
+  return function(name, project) {
+    console.log(project);
+    createFile({
+      name: name,
+      project: {
+        "$oid": project._id.$oid
+      }
+    }).then(function(res) {
+      var file;
+      console.log(res);
+      file = angular.fromJson(res.data.obj);
+      console.log(file);
+      project.files.push(file);
+      console.log(project);
+      allProjects.addFileToProject(file, project);
+    });
+  };
+}]);
+
 app.factory('users', ["$http", function($http) {
   return $http.get('/api/v1/user');
 }]);
@@ -80,40 +172,68 @@ app.service('currentFile', function() {
   };
 });
 
-app.controller('MainCtrl', ["$scope", "$q", "$rootScope", "users", "projects", "files", "currentFile", "saveFile", function($scope, $q, $rootScope, users, projects, files, currentFile, saveFile) {
-  var self;
+app.controller('MainCtrl', ["$window", "$scope", "$q", "$rootScope", "users", "projects", "files", "currentFile", "saveFile", "makeFile", "allProjects", function($window, $scope, $q, $rootScope, users, projects, files, currentFile, saveFile, makeFile, allProjects) {
+  var self, update;
   self = this;
   $scope.editorData = {};
-  users.then(function(res) {
-    $q.when(self.users = res.data.objects.map(function(itm) {
-      return angular.fromJson(itm);
-    })).then(function() {
-      var oid, _id;
-      _id = self.users[0]._id;
-      if (_id) {
-        oid = _id.$oid;
-      } else {
-        oid = false;
-      }
-      if (oid) {
-        projects(oid).then(function(res) {
-          self.projects = res.data;
+  update = function() {        
+        allProjects.getProjects().then(function(res){
+            var rtn = [];
+            forEach(res,function(itm) {
+                  rtn.push(fromJson(itm[0]));
+            });
+            return rtn
+        }).then(function(res){
+            self.projects = res;
+            self.users = allProjects.getUsers();
         });
-      }
-    });
+  };
+  $scope.$watchCollection('projects', function(o, n) {
+    console.log('watching',n);
+    self.projects = n;
+    return update();
   });
+  /*    
+  users.then (res)->
+      $q.when(self.users = res.data.objects.map (itm)->
+          return angular.fromJson itm
+      ).then ()->
+          _id = self.users[0]._id
+          if _id
+              oid = _id.$oid
+          else
+              oid = false
+          if oid
+              projects(oid).then (res)->
+                  self.projects = res.data
+                  return
+          return
+      return
+  */
+
+  self.updateProjects = function() {
+    self.projects = [];
+    allProjects.getProjects().then(function(res){
+        res.map(function(itm) {
+            self.projects.push(fromJson(itm));
+        });
+    }).then(function(){;
+        self.users = allProjects.getUsers();
+    });
+  };
+  //self.updateProjects();
   self.get_projects = function(oid) {
     $q.when(projects(oid)).then(function(res) {
       $q.when(res).then(function() {
         self.projects = res.projects.map(function(itm) {
-          return angular.fromJson(itm);
+          return fromJson(itm);
         });
       });
     });
   };
   self.get_files = function(oid) {
     files(oid).then(function(res) {
-      self.files = res.data.files.map(function(itm) {
+      return self.files = res.data.files.map(function(itm) {
         return angular.fromJson(itm);
       });
     });
@@ -125,7 +245,10 @@ app.controller('MainCtrl', ["$scope", "$q", "$rootScope", "users", "projects", "
   };
   self.get_all_files = function() {
     self.projects.map(function(itm) {
-      self.get_files(itm._id.$oid);
+      self.get_files(itm._id.$oid).then(function(res) {
+        itm.files = res;
+        console.log(res);
+      });
     });
   };
   self.close = function() {
@@ -158,5 +281,12 @@ app.controller('MainCtrl', ["$scope", "$q", "$rootScope", "users", "projects", "
       }
     }
     self.get_all_files();
+  };
+  self.add_file = function(project) {
+    var name;
+    console.log('hmmm');
+    name = $window.prompt("What name:");
+    makeFile(name, project);
+    console.log("made " + name + ", and added to " + project.name);
   };
 }]);
