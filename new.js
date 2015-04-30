@@ -96,6 +96,21 @@ app.config(["$routeProvider", "$locationProvider", function($routeProvider, $loc
         $scope.projects = r1;
       });
     }]
+  }).when('/file/:id/edit', {
+    templateUrl: 'edit.html',
+    controller: ["$scope", "$routeParams", "fileService", "$q", function($scope, $routeParams, fileService, $q) {
+      $scope.cfg = {
+        useWrapMode: true,
+        lineNumbers: true,
+        showGutter: true,
+        theme: 'twilight',
+        mode: 'javascript'
+      };
+      $q.when(fileService.loadFile($routeParams.id)).then(function() {
+        $scope.file = fileService.getFile();
+        $scope.editorData = $scope.file;
+      });
+    }]
   });
   $locationProvider.html5Mode(true);
 }]);
@@ -159,6 +174,26 @@ app.filter('count', function() {
     return 0;
   };
 });
+
+app.service('fileService', ["File", function(File) {
+  var self;
+  self = this;
+  self.file = {};
+  self.loadFile = function(oid) {
+    File(oid).then(function(res) {
+      self.file = res.data;
+    });
+  };
+  self.getFile = function() {
+    return self.file;
+  };
+}]);
+
+app.factory('File', ["$http", "apiPrefix", function($http, apiPrefix) {
+  return function(oid) {
+    return $http.get("" + apiPrefix + "/file/" + oid);
+  };
+}]);
 
 app.factory('User', ["$http", "apiPrefix", function($http, apiPrefix) {
   return function(oid) {

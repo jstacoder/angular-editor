@@ -22,7 +22,9 @@
                     <div class=col-md-12>
                         <ul>
                             <li ng-repeat="proj in ctrl.projects">
+                                <a ng-click="ctrl.add_file(proj)">add file</a>
                                 <div class=col-md-8>
+                                    {{ proj._id }}
                                     <p ng-click="ctrl.get_files(proj._id.$oid)">{{ proj.name }}</p>
                                     <ul ng-repeat="file in ctrl.files track by $index">
                                         <li ng-click="ctrl.set_file(file)">{{ file.name }}</li>

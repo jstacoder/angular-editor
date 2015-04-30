@@ -55,10 +55,6 @@ app.config ($routeProvider,$locationProvider)->
             $scope.getProjectName = (p)->
                 project(p.$oid).then (res)->
 
-                
-
-
-
             if $scope.item == 'user'
                 collectUsers().then (res)->
                     console.log res
@@ -90,6 +86,21 @@ app.config ($routeProvider,$locationProvider)->
             ]).then (r1,r2)->
                 $scope.users = r2
                 $scope.projects = r1
+                return
+            return
+    ).when('/file/:id/edit',
+        templateUrl:'edit.html'
+        controller:($scope,$routeParams,fileService,$q)->
+            $scope.cfg =
+                useWrapMode:true
+                lineNumbers:true
+                showGutter:true
+                theme:'twilight'
+                mode:'javascript'
+                
+            $q.when(fileService.loadFile($routeParams.id)).then ()->
+                $scope.file = fileService.getFile()
+                $scope.editorData = $scope.file
                 return
             return
     )
@@ -139,6 +150,21 @@ app.filter 'count',()->
                 return data.length
         return 0
 
+app.service 'fileService',(File)->
+    self = @
+    self.file = {}
+    self.loadFile = (oid)->
+        File(oid).then (res)->
+            self.file = res.data
+            return
+        return
+    self.getFile = ()->
+        return self.file
+    return
+
+app.factory 'File',($http,apiPrefix)->
+    return (oid)->
+        return $http.get "#{apiPrefix}/file/#{oid}"
 
 app.factory 'User',($http,apiPrefix)->
     return (oid)->

@@ -110,11 +110,19 @@ def _create_file():
     print dir(f.project)
     return jsonify(result='success',obj=f.to_json())
 
+@api.route('/file/<oid>')
+def _file2(oid):
+    fle = File.objects.get(id=oid)
+    return jsonify(dict(json.loads(fle.to_json())))
+
+
 @api.route('/files/<pid>',methods=['GET'])
 def _files(pid):
     rtn = []
     project = Project.objects.get(id=pid)
     for fle in project.files:
+        print dir(fle)
+        print File.objects.get(id=fle.id)
         rtn.append(fle)
     return jsonify(objects=[f.to_json() for f in rtn])
         
@@ -135,10 +143,20 @@ def obj_type(obj_type):
         file=File,
     )[obj_type]
     objects = model.objects.all()
-    res = make_response(json.dumps(dict(objects=[dict(json.loads(o.to_json())) for o in objects])))
+    res = make_response(
+            json.dumps(
+                dict(
+                    objects = [ dict(
+                                    json.loads(
+                                        o.to_json()
+                                    )
+                    ) for o in objects ]
+                )
+            )
+    )
     res.headers['Content-Type'] = 'application/json'
     return res
-    return jsonify(objects=[x.to_json() for x in objects])
+    #return jsonify(objects=[x.to_json() for x in objects])
 
 @api.route('/user',methods=['POST'])
 def _user():
@@ -188,7 +206,10 @@ app.register_blueprint(api)
 @app.route('/<catch>/<more>/<mmore>')
 def catch(catch,more=None,mmore=None):
     if more is None or ('.html' in catch or '.js' in catch or '.css' in catch):
-        return send_file(catch)
+        try:
+            return send_file(catch)
+        except IOError,e:
+            pass
     return send_file('index2.html')
 
 if __name__ == "__main__":
