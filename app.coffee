@@ -1,5 +1,9 @@
 'use strict'
 
+fromJson = angular.fromJson
+equals = angular.equals
+forEach = angular.forEach
+
 app = angular.module 'editor.app',[]
 
 app.factory 'login', ($http)->
@@ -30,6 +34,76 @@ app.factory 'projects',($q,$http,login)->
                 def.reject res.data
         return def.promise
 
+app.factory 'createFile',($http)->
+    return (data)->
+        return $http.post '/api/v1/files/create',data
+
+app.service 'allProjects',($q,projects,users)->
+    projs = []
+    self = @
+    users.then (res)->
+        $q.when(self.users = res.data.objects.map (itm)->
+            return fromJson itm
+        ).then ()->
+            self.users.map (itm)->
+                _id = itm._id
+                if _id
+                    oid = _id.$oid
+                else
+                    oid = false
+                if oid
+                    projects(oid).then (res)->
+                        projs.push res.projects
+                        return
+                return
+            return
+        return
+    self.getProjects = ()->
+        return projs.map (itm)->
+            return fromJson itm[0]
+
+    self.getProject = (pid)->
+        return projs.filter (itm)->
+            if itm._id
+                if itm._id.$oid
+                    id = itm._id.$oid
+                else
+                    id = itm._id
+            else
+                id = itm.id
+            return id == pid
+    self.addFileToProject = (file,proj)->
+        forEach projs,(itm)->
+            if equals(itm._id,proj._id)
+                itm.files.push file
+                return
+    self.getUsers = ()->
+        return self.users
+    return
+
+
+
+
+
+app.factory 'makeFile',(createFile,allProjects)->
+    return (name,project)->
+        console.log project
+        createFile
+            name:name
+            project:
+                "$oid":project._id.$oid
+        .then (res)->
+            console.log res
+            file = angular.fromJson res.data.obj
+            console.log file
+            project.files.push file
+            console.log project
+            allProjects.addFileToProject file,project
+            return
+        return
+
+        
+
 app.factory 'users',($http)->
     return $http.get '/api/v1/user'
 
@@ -58,9 +132,17 @@ app.service 'currentFile',()->
         return rtn
     return
 
-app.controller 'MainCtrl',($scope,$q,$rootScope,users,projects,files,currentFile,saveFile)->
+app.controller 'MainCtrl',($window,$scope,$q,$rootScope,users,projects,files,currentFile,saveFile,makeFile,allProjects)->
     self = @
     $scope.editorData = {}
+    update = ()->
+        $scope.projects = forEach allProjects.getProjects(),(itm)->
+            return fromJson itm[0]
+    $scope.$watchCollection 'projects',(o,n)->
+        console.log 'watching'
+        self.projects = n
+        update()
+    ###    
     users.then (res)->
         $q.when(self.users = res.data.objects.map (itm)->
             return angular.fromJson itm
@@ -76,19 +158,24 @@ app.controller 'MainCtrl',($scope,$q,$rootScope,users,projects,files,currentFile
                     return
             return
         return
+    ###
+    self.updateProjects = ()->
+        self.projects = allProjects.getProjects().map (itm)->
+            return fromJson itm
+        self.users = allProjects.getUsers()
+    self.updateProjects()
     self.get_projects = (oid)->
         $q.when(projects(oid)).then (res)->
             $q.when(res).then ()->
                 self.projects = res.projects.map (itm)->
-                    return angular.fromJson itm
+                    return fromJson itm
                 return
             return
         return
     self.get_files = (oid)->
         files(oid).then (res)->
-            self.files = res.data.files.map (itm)->
+            return self.files = res.data.files.map (itm)->
                 return angular.fromJson itm
-            return
         return
     self.set_file = (file)->
         currentFile.set_current file
@@ -97,7 +184,10 @@ app.controller 'MainCtrl',($scope,$q,$rootScope,users,projects,files,currentFile
         return
     self.get_all_files = ()->
         self.projects.map (itm)->
-            self.get_files itm._id.$oid
+            self.get_files(itm._id.$oid).then (res)->
+                itm.files = res
+                console.log res
+                return
             return
         return
     self.close = ()->
@@ -122,6 +212,13 @@ app.controller 'MainCtrl',($scope,$q,$rootScope,users,projects,files,currentFile
                         self.files.splice idx,1
                         self.files.push current
         self.get_all_files()
+        return
+    self.add_file = (project)->
+        console.log 'hmmm'
+        name = $window.prompt "What name:"
+        makeFile name,project
+        console.log "made #{name}, and added to #{project.name}"
+
         return
     return
             

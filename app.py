@@ -70,7 +70,6 @@ class Project(Document):
 def _create_file():
     f = File.from_json(request.data).save()
     print dir(f.project)
-    print f.project.as_doc()['$ref']
     return jsonify(result='success',obj=f.to_json())
 
 @api.route('/files/<pid>',methods=['GET'])
