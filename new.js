@@ -2,7 +2,7 @@
 
 var app;
 
-app = angular.module('editor.app', ['ngRoute']);
+app = angular.module('editor.app', ['ngRoute', 'ui.ace', 'mgcrea.ngStrap']);
 
 app.constant('apiPrefix', '/api/v1');
 
@@ -98,7 +98,27 @@ app.config(["$routeProvider", "$locationProvider", function($routeProvider, $loc
     }]
   }).when('/file/:id/edit', {
     templateUrl: 'edit.html',
-    controller: ["$scope", "$routeParams", "fileService", "$q", function($scope, $routeParams, fileService, $q) {
+    controller: ["$alert", "$scope", "$routeParams", "fileService", "$q", "File", "saveFile", function($alert, $scope, $routeParams, fileService, $q, File, saveFile) {
+      $scope.save = function(content) {
+        var data;
+        data = {
+          content: content,
+          name: $scope.file.name
+        };
+        return saveFile($scope.file.oid, data).then(function(res) {
+          var alert;
+          console.log(res.data);
+          return alert = $alert({
+            title: 'File Saved',
+            content: "You successfully saved " + res.data.obj.name,
+            placement: 'top',
+            type: 'success',
+            show: true,
+            duration: 5,
+            container: angular.element(document.getElementsByClassName('container')[0])
+          });
+        });
+      };
       $scope.cfg = {
         useWrapMode: true,
         lineNumbers: true,
@@ -106,10 +126,12 @@ app.config(["$routeProvider", "$locationProvider", function($routeProvider, $loc
         theme: 'twilight',
         mode: 'javascript'
       };
-      $q.when(fileService.loadFile($routeParams.id)).then(function() {
-        $scope.file = fileService.getFile();
-        $scope.editorData = $scope.file;
+      File($routeParams.id).then(function(res) {
+        console.log(res.data);
+        $scope.file = res.data;
+        return $scope.editorData = $scope.file.content;
       });
+      return;
     }]
   });
   $locationProvider.html5Mode(true);
@@ -186,6 +208,13 @@ app.service('fileService', ["File", function(File) {
   };
   self.getFile = function() {
     return self.file;
+  };
+}]);
+
+app.factory('saveFile', ["$http", "apiPrefix", function($http, apiPrefix) {
+  return function(oid, data) {
+    data['id'] = oid;
+    return $http.post("" + apiPrefix + "/save", data);
   };
 }]);
 

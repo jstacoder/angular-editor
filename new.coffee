@@ -1,6 +1,6 @@
 'use strict'
 
-app = angular.module 'editor.app',['ngRoute']
+app = angular.module 'editor.app',['ngRoute','ui.ace','mgcrea.ngStrap']
 
 app.constant 'apiPrefix','/api/v1'
 
@@ -90,17 +90,33 @@ app.config ($routeProvider,$locationProvider)->
             return
     ).when('/file/:id/edit',
         templateUrl:'edit.html'
-        controller:($scope,$routeParams,fileService,$q)->
+        controller:($alert,$scope,$routeParams,fileService,$q,File,saveFile)->
+            $scope.save = (content)->
+                data =                    
+                    content : content
+                    name : $scope.file.name
+                saveFile($scope.file.oid,data).then (res)->
+                    console.log(res.data)
+                    alert = $alert
+                        title: 'File Saved'
+                        content: "You successfully saved #{res.data.obj.name}"
+                        placement: 'top'
+                        type: 'success'
+                        show: true
+                        duration:5
+                        container:angular.element(document.getElementsByClassName('container')[0])
+                                
             $scope.cfg =
                 useWrapMode:true
                 lineNumbers:true
                 showGutter:true
                 theme:'twilight'
                 mode:'javascript'
-                
-            $q.when(fileService.loadFile($routeParams.id)).then ()->
-                $scope.file = fileService.getFile()
-                $scope.editorData = $scope.file
+            
+            File($routeParams.id).then (res)->
+                    console.log res.data
+                    $scope.file = res.data
+                    $scope.editorData = $scope.file.content
                 return
             return
     )
@@ -162,6 +178,11 @@ app.service 'fileService',(File)->
         return self.file
     return
 
+app.factory 'saveFile',($http,apiPrefix)->
+    return (oid,data)->
+        data['id'] = oid
+        return $http.post "#{apiPrefix}/save" , data
+            
 app.factory 'File',($http,apiPrefix)->
     return (oid)->
         return $http.get "#{apiPrefix}/file/#{oid}"

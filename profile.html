@@ -1,20 +1,34 @@
 <h2>{{ item }}</h2>
 <h3>{{ profile.name ? profile.name : profile.username }}</h3>
 <div class=list-group>
-    <div class=list-group-item ng-repeat="(key,val) in profile">
-        {{ key }}
-        <div ng-if="key=='projects'||key=='files'">
-            <ul>
-                <li ng-repeat="itm in val track by $index">
-                    {{ itm  }}
-                    <a ng-if="key=='projects'" ng-href="/project/profile/{{ itm.$oid }}">go</a>
-                    <a ng-if="key=='files'" ng-href="/file/{{ itm.$oid }}/edit">edit</a>
+    <div class=list-group-item>Name: {{profile.name}}</div>
+    <div class=list-group-item>        
+        <!--<div ng-init="key=profile.files?profile.files:profile.projects">-->
+        
+        <div ng-init="items=profile.projects||profile.files">
+            {{ (profile.projects || profile.files)  | count}} -> {{ profile.projects && 'project' || 'file' }}
+            
+            <!--{{ profile.projects || profile.files }}-->
+            <ul ng-if="profile.projects" class="list-unstyled list-inline">
+                <li ng-repeat="proj in profile.projects">
+                    <a ng-href="/project/profile/{{proj.$oid}}">project page</a>
+                </li>    
+            </ul>
+            <ul ng-if="profile.files" class="list-unstyled">
+                <li ng-repeat="file in profile.files">
+                    File {{ $index }}: {{ file.name }}
+                    <a ng-href="/file/{{ file.oid }}/edit">edit</a>                       
                 </li>
+                <!--
+                <li ng-repeat="itm in val track by $index">
+                    {{ itm.name }}
+                    <a ng-if="key=='projects'" ng-href="/project/profile/{{ itm.$oid }}">--- go</a>
+                    <a ng-if="key=='files'" ng-href="/file/{{ itm.oid }}/edit">--- edit</a>
+                </li>
+                -->
             </ul>
         </div>                               
-        <div ng-if="key=='name'">        
-                {{ val }}            
-        </div>
+        
     </div>
 </div>
 <a ng-href="/{{ item }}/list" class="btn btn-default">back</a>

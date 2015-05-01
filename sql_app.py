@@ -151,30 +151,28 @@ class Project(Document):
 @api.route('/file/create',methods=['POST'])
 def _create_file():
     print request.data
-    f = File()
+    f = Document()
     data = json.loads(request.data)
-    f.title = data['name']
-    project = Project.objects.get(id=json.loads(request.data)['project'])
-    print project
-    project.add_file(f)        
+    f.title = data.get('name',None)
+    f.project = Project.session.query(Project).get(data['project'])
+    print f.project
+    f.save()
     return jsonify(result='success',obj=f.to_json())
 
 @api.route('/file/<oid>')
 def _file2(oid):
-    rtn = filter(None,map(lambda x: filter(lambda _x: _x.oid == int(oid),x.files),list(Project.objects)))
-    fle = rtn[0][0] if rtn is not None else None
-    print fle
-    return jsonify(dict(json.loads(fle.to_json())))
+    fle = Document.session.query(Document).get(oid)
+    return jsonify(fle.to_json())
 
 @api.route('/files/<pid>',methods=['GET'])
 def _files(pid):
     rtn = []
-    project = Project.objects.get(id=pid)
+    project = Project.session.query(Project).get(pid)
     for fle in project.files:
     #    print dir(fle)
     #    print File.objects.get(id=fle.id)
         rtn.append(fle)
-    return jsonify(objects=[json.loads(f.to_json()) for f in rtn])
+    return jsonify(objects=[f.to_json() for f in rtn])
         
 @api.route('/save',methods=['POST'])
 def save():
@@ -183,39 +181,28 @@ def save():
     projs = list(Project.objects)
     save_content = 'content' in data
     save_name = 'name' in data
-    _p = None
-    fle = None
-    for proj in projs:
-        print proj._file_map.keys()
-        if unicode(data['id']) in proj._file_map:
-            print 'HERE'
-            fle = proj.files[data['id']]
-            _p = proj
+    fle = Document.session.query(Document).get(data['id'])
+    _p = fle.project
     #p = Project.objects.get(id=json.loads(fle.to_json())['project']['$oid'])
     print fle,_p
     if save_content:
         fle.content = data['content']
     if save_name:
         fle.name = data['name']
-    _p.save()
-    return jsonify(result='success',obj=json.loads(fle.to_json()))
+    fle.save()
+    return jsonify(result='success',obj=fle.to_json())
 
 @api.route('/<obj_type>',methods=['GET'])
 def obj_type(obj_type):
     model = dict(
         user=User,
         project=Project,        
+        document=Document,
     )[obj_type]
-    objects = model.objects.all()
+    objects = model.session.query(model).all()
     res = make_response(
             json.dumps(
-                dict(
-                    objects = [ dict(
-                                    json.loads(
-                                        o.to_json()
-                                    )
-                    ) for o in objects ]
-                )
+                dict(objects=[o.to_json() for o in objects])
             )
     )
     res.headers['Content-Type'] = 'application/json'
@@ -225,24 +212,22 @@ def obj_type(obj_type):
 @api.route('/user',methods=['POST'])
 def _user():
     data = json.loads(request.data)
-    try:
-        u = User.objects.get(username=data['username'])
-    except:
+    u = User.session.query(User).filter(User.username==data['username'])
+    if u is None:
         u = User(**data)
         u.save()
     return jsonify(user=u.to_json())
 
 @api.route('/user/<_id>',methods=['POST','GET'])
 def _get_user(_id):
-    u = User.objects.get(id=_id)
+    u = User.session.query(User).get(_id)
     return jsonify(user=u.to_json())
 
 @api.route('/project',methods=['POST'])
 def _project():
     data = json.loads(request.data)
-    try:
-        p = Project.objects.get(name=data['name'])
-    except:
+    p = Project.session.query(Project).filter(Project.name==data['name'])
+    if p is None:
         p = Project(**data)
         p.save()
     return jsonify(project=p.to_json())
