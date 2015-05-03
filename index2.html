@@ -2,18 +2,69 @@
     <head>
         <base href="/" />
         <link rel=stylesheet href=bootstrap.css />
+        <style>
+                .inline-block {
+                    display:inline-block;
+                }
+                .btn-square {
+                    border-radius:0px;
+                }
+        </style>
     </head>
     <body>
+        <tz-nav></tz-nav>
         <div class=container>
             <ng-view></ng-view>
-            <div ng-controller="footerCtrl" ng-include="'footer.html'"></div>
+            <tz-footer></tz-footer>
         </div>
         <script src="angular.js"></script>
+        <script src="ui-bootstrap-tpls.js"></script>
         <script src="angular-route.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.min.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/angular-strap/2.1.2/angular-strap.tpl.min.js"></script>
+        <script src="angular-strap.js"></script>
+        <script src="angular-strap.tpl.js"></script>
+        <script src="alert.js"></script>
+        <script src="alert.tpl.js"></script>
+        <script src="auth.js"></script>
         <script src="ace.js"></script>
         <script src="ui-ace.js"></script>
         <script src="new.js"></script>
+         <script type="text/ng-template" id="deleteProjectModal.html">
+            <div class="modal-header">
+                <h3 class="modal-title">{{ title }}</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete {{ project.name }}?</p>
+            </div>
+            <div class="modal-footer">
+            <button class="btn btn-danger" ng-click="$close(project.name)">OK</button>
+            <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
+            </div>
+         </script>
+         <script type="text/ng-template" id="myModalContent.html">
+            <div class="modal-header">
+                <h3 class="modal-title">I'm a modal!</h3>
+            </div>
+            <div class="modal-body">
+                <input type=text ng-model="project.name" class="input-sm form-control"/>
+                <span ng-bind="project.name"></span>
+            </div>
+            <div class="modal-footer">
+            <button class="btn btn-primary" ng-click="$close(project.name)">OK</button>
+            <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
+            </div>
+         </script>
+         <script type="text/ng-template" id="myFileModal.html">
+            <div class="modal-header">
+                <h3 class="modal-title">Add a File</h3>
+            </div>
+            <div class="modal-body">
+                <input type=text ng-model="file.name" class="input-sm form-control"/>
+                <span ng-bind="file.name"></span>
+            </div>
+            <div class="modal-footer">
+            <button class="btn btn-primary" ng-click="$close(file.name)">OK</button>
+            <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
+            </div>
+         </script>
     </body>
 </html>

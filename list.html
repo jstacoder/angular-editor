@@ -1,7 +1,22 @@
-<h2>{{ item }}</h2>
-<ul>
-    <li ng-repeat="itm in coll">
-        <a ng-href="{{ getUrl(itm) }}" class="btn btn-default btn-lg">{{ itm.name ? itm.name : itm.username }}</a>
-    </li>
-</ul>
-<a href="/dash" class="btn btn-default">Back</a>
+<div class=row>
+    <div class=col-md-12>
+        <h2>{{ item }}'s</h2>
+        <div class=row>
+            <div ng-if="item=='project'" class=col-md-4>
+                <a ng-click="addProject()" class="btn btn-primary btn-square">add project</a>
+                <a ng-click="removeProjectMode()" class="btn btn-danger btn-square">Remove project</a>
+            </div>
+            <div class=col-md-4>
+                <h2 class=lead ng-show="removeMode">Select projects to remove</h2>
+                <ul class="inline-block list-unstyled">
+                    <li ng-repeat="itm in coll" class="inline-block">
+                        <a ng-click="checkMode($event)" ng-href="{{ getUrl(itm) }}" class="btn btn-square btn-default btn-lg">{{ itm.name ? itm.name : itm.username }}</a>
+                    </li>
+                </ul>
+                <a href="/dash" class="btn btn-default">Back</a>
+            </div>
+            <div class=col-md-4>
+            </div>
+        </div>
+    </div>
+</div>

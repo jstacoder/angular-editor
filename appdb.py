@@ -16,8 +16,30 @@ def load_db(uri):
 
 _Model = load_db('mysql+pymysql://edit:edit@localhost:3306/editor')
 
+# classproperty decorator
+class classproperty(object):
+    def __init__(self, getter):
+        self.getter = getter
+
+    def __get__(self, instance, owner):
+        return self.getter(owner)
+    
+
 class Model(_Model):
     __abstract__ = True
+    
+    @classproperty
+    def query(cls):
+        return cls.session.query(cls)
+    
+    @classmethod
+    def get_all(cls):
+        return cls.query.all()
+    
+    @classmethod
+    def get_by_id(cls,_id):
+        return cls.query.get(_id)
+    
     @declared_attr
     def __tablename__(self):
         return underscore(pluralize(self.__name__))
@@ -40,6 +62,7 @@ class Document(Model):
     __table_args__ = (
         (sa.UniqueConstraint('title','project_id')),
     )
+    id = sa.Column(sa.Integer,primary_key=True)
     title = sa.Column(sa.String(255))
     project_id = sa.Column(sa.Integer,sa.ForeignKey('projects.id'))
     project = orm.relationship('Project')                                
@@ -54,6 +77,10 @@ class Document(Model):
             self._set_hash(c)
             self.content = c
         super(Document,self).__init__(*args,**kwargs)
+        
+    @property    
+    def oid(self):
+        return self.id
     
     def _set_hash(self,content):
         hsh = new(ALG,c).hexdigest()
@@ -62,6 +89,10 @@ class Document(Model):
     @property
     def name(self):
         return self.title
+    
+    @name.setter
+    def name(self,data):
+        self.title = data
 
     def to_json(self):
         return dict(
@@ -88,7 +119,7 @@ class User(Model):
         )
 
 
-class Project(Model):
+class Project(Model):   
     name = sa.Column(sa.String(255))
     users = orm.relationship('User',secondary='users_projects',lazy='dynamic')
     files = orm.relationship('Document',lazy='dynamic')
@@ -97,7 +128,7 @@ class Project(Model):
         return dict(
             name=self.name,
             users=[u.username for u in self.users],
-            files=[f.title for f in self.files],
+            files=[{'name':f.title,'oid':f.id} for f in self.files],
             _id={'$oid':self.id},
         )
     

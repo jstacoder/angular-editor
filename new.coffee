@@ -1,8 +1,66 @@
 'use strict'
 
-app = angular.module 'editor.app',['ngRoute','ui.ace','mgcrea.ngStrap']
+app = angular.module 'editor.app',['ngRoute','ui.ace','mgcrea.ngStrap','ui.bootstrap','auth.app']
 
 app.constant 'apiPrefix','/api/v1'
+
+app.factory 'aceLoaded',()->
+    return (_editor)->
+        _sess = _editor.getSession()
+        _rend = _editor.renderer
+        _rend.setFontSize 20
+        console.log _rend,_sess,_editor
+        return
+
+
+app.factory 'aceCfg',(aceLoaded)->
+    rtn =
+      onload:aceLoaded
+      require: ['ace/ext/language_tools']
+      advanced:
+          enableSnippets: true
+          enableBasicAutocompletion: true
+          enableLiveAutocompletion: true
+          rendererOptions:
+                fontSize:20
+      useWrapMode:true
+      lineNumbers:true
+      showGutter:true
+      theme:'twilight'
+      mode:'javascript'
+    return rtn
+
+app.value 'editorModes',
+    'js':'javascript'
+    'coffee':'coffeescript'
+    'py':'python'
+    'html':'html'
+    'php':'php'
+    'c':'c'
+    'h':'c'
+
+app.factory 'getMode',(editorModes)->
+    return (ext)->
+        return editorModes[ext]
+
+app.directive 'size',()->
+    restrict:"A"
+    scope:
+        size:"@"
+    link:(scope,ele,attrs)->
+        angular.element(document.getElementsByClassName('ace_editor')).css({'font-size':"#{attrs.size}px"})
+
+app.directive 'tzFooter',()->
+    restrict:"E"
+    templateUrl:"footer.html"
+    controller:($scope,viewCount)->
+        viewCount.then (res)->
+            $scope.vc = res.data.count
+
+app.directive 'tzNav',()->
+    restrict:"E"
+    templateUrl:"navbar.html"
+    replace:true
 
 
 app.factory 'viewCount',($http,apiPrefix)->
@@ -16,6 +74,13 @@ app.factory 'collections',(collectUsers,collectProjects)->
         return rtn[itm]()
 
 
+app.factory 'back',($location,$window)->
+    return ()->
+        $location.state([
+            $window.history.back()
+        ]).replace()
+        return
+
 app.config ($routeProvider,$locationProvider)->
     $routeProvider.when( '/',
         templateUrl:'home.html'
@@ -27,31 +92,110 @@ app.config ($routeProvider,$locationProvider)->
             $scope.users = []
             $scope.projects = []
             $scope.collectUsers = collectUsers
-            $scope.users = collectUsers()
-            $scope.projects = collectProjects()
+            collectUsers().then (res)->
+                console.log res
+                $scope.users = res
+                return
+            collectProjects().then (res)->
+                console.log res
+                $scope.projects = res
+                return
             return
     ).when('/:item/list',
         templateUrl:'list.html'
-        controller:($scope,$routeParams,collectProjects,collectUsers,collections)->
+        controller:($uiModal,$scope,$routeParams,collectProjects,collectUsers,collections,addProject)->
             console.log $routeParams
             console.log $routeParams.item
             $scope.item = $routeParams.item
+            $scope.checkMode = ($event)->
+                console.log($event)
+                if $scope.removeMode
+                    $event.preventDefault()
+                    $event.stopPropagation()
+                    modal = $uiModal.open
+                        controller:($scope,$modalInstance)->
+                            $scope.project = {}
+                            $scope.project.name = $event.srcElement.innerText
+                            $scope.title = 'Confirm Delete'
+                        templateUrl: 'deleteProjectModal.html'
+                    modal.result.then( (res)->
+                        console.log res
+                        angular.element($event.srcElement).remove()
+                        $scope.removeMode = false
+                        return
+                    ,(err)->
+                        console.log err
+                        $scope.removeMode = false
+                        return
+                    )
+                return
+            $scope.removeProjectMode = ()->
+                $scope.removeMode = true
+                return
+            $scope.testVar = 'testing 1,2,3'
+            $scope.items = ['x','y','a']
             collections($scope.item).then (res)->
                 console.log res
                 $scope.coll = res
             $scope.getUrl = (itm)->
                 return "#{$scope.item}/profile/#{itm._id.$oid}"
+            $scope.addProject = ()->
+                _s = $scope.$new({testVar:'cccccc'})
+                _s.testVar = 'ttttttttt'
+                modal = $uiModal.open
+                    controller:($scope,$modalInstance)->
+                        $scope.project = {}
+                        $scope.project.name = ''
+                        
+                    controllerAs:'ng-controller as ctrl'
+                    title:'testModal'
+                    templateUrl: 'myModalContent.html'
+                    resolve:
+                        items:()->
+                            return $scope.items
+                modal.result.then( (res)->
+                    console.log res
+                    addProject(res).then (r)->
+                        console.log r
+                        $scope.coll.push r.data.object
+                        return
+                    return
+                ,(err)->
+                    console.log err
+                    return
+                )
+                return
             return
     ).when('/:item/profile/:id',
         templateUrl:'profile.html'
-        controller:($scope,$routeParams,collections,collectUsers,collectProjects)->
+        controller:($uiModal,$scope,$routeParams,collections,collectUsers,collectProjects,addFile,back)->
             colls =
                 user:collectUsers
                 project:collectProjects
+            $scope.back = back
             $scope.item = $routeParams.item
             console.log $scope.item
             $scope.route_id = $routeParams.id
             console.log $scope.route_id
+            $scope.addFile = ()->
+                modal = $uiModal.open
+                    controller:($scope,$modalInstance)->
+                        $scope.file = {}
+                        $scope.file.name = ''
+                    title:'testModal'
+                    templateUrl: 'myFileModal.html'
+                modal.result.then( (res)->
+                    console.log res
+                    addFile($scope.route_id,res).then (r)->
+                        console.log r
+                        $scope.profile.files.push r.data.object
+                        return
+                    return
+                ,(err)->
+                    console.log err
+                    return
+                )
+                    
             $scope.getProjectName = (p)->
                 project(p.$oid).then (res)->
 
@@ -62,7 +206,7 @@ app.config ($routeProvider,$locationProvider)->
                     console.log $scope.coll
                     angular.forEach $scope.coll, (itm)->
                         console.log itm,$scope.route_id
-                        if itm._id.$oid == $scope.route_id
+                        if itm._id.$oid == parseInt $scope.route_id
                             $scope.profile = itm
                         return
                 return
@@ -72,7 +216,7 @@ app.config ($routeProvider,$locationProvider)->
                     $scope.coll = res
                     angular.forEach $scope.coll, (itm)->
                         console.log itm,$scope.route_id
-                        if itm._id.$oid == $scope.route_id
+                        if itm._id.$oid == parseInt $scope.route_id
                             $scope.profile = itm
                         return
                 return
@@ -90,32 +234,33 @@ app.config ($routeProvider,$locationProvider)->
             return
     ).when('/file/:id/edit',
         templateUrl:'edit.html'
-        controller:($alert,$scope,$routeParams,fileService,$q,File,saveFile)->
+        controller:($alert,$scope,$routeParams,fileService,$q,File,saveFile,getMode,aceCfg)->
             $scope.save = (content)->
-                data =                    
+                data =
                     content : content
                     name : $scope.file.name
-                saveFile($scope.file.oid,data).then (res)->
+                saveFile($scope.file._id.$oid,data).then (res)->
                     console.log(res.data)
                     alert = $alert
-                        title: 'File Saved'
+                        title: 'Saved'
                         content: "You successfully saved #{res.data.obj.name}"
                         placement: 'top'
                         type: 'success'
                         show: true
-                        duration:5
+                        duration:3
                         container:angular.element(document.getElementsByClassName('container')[0])
-                                
-            $scope.cfg =
-                useWrapMode:true
-                lineNumbers:true
-                showGutter:true
-                theme:'twilight'
-                mode:'javascript'
+            setCfg = (opts)->
+                angular.extend aceCfg, opts
+                $scope.cfg = aceCfg
             
             File($routeParams.id).then (res)->
                     console.log res.data
                     $scope.file = res.data
+                    name = $scope.file.name
+                    ext = name.split('.')[name.split('.').length-1]
+                    mode = getMode ext
+                    setCfg
+                        mode:mode
                     $scope.editorData = $scope.file.content
                 return
             return
@@ -123,9 +268,18 @@ app.config ($routeProvider,$locationProvider)->
     $locationProvider.html5Mode true
     return
 
-app.controller 'footerCtrl',($scope,viewCount)->
-    viewCount.then (res)->
-        $scope.vc = res.data.count
+
+app.factory 'addFile',($http,apiPrefix)->
+    return (pid,name)->
+        return $http.post "#{apiPrefix}/create/document",
+            name:name
+            project_id:pid
+
+app.factory 'addProject',($http,apiPrefix)->
+    return (name)->
+        return $http.post "#{apiPrefix}/create/project",
+            name:name
+
 
 
 app.factory 'collectProjects',($q,projects)->

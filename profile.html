@@ -1,14 +1,31 @@
 <h2>{{ item }}</h2>
 <h3>{{ profile.name ? profile.name : profile.username }}</h3>
 <div class=list-group>
-    <div class=list-group-item>Name: {{profile.name}}</div>
+    <div class=list-group-item>
+        <div class=row>
+        <div class=col-md-10>
+            <p>Name: {{profile.name}}</p>
+        </div>
+        <div class=col-md-2>
+            <a 
+                ng-if="profile.files" 
+                class="btn btn-success" 
+                ng-click="addFile()"
+            >Add File</a>
+        </div>
+        </div>
+    </div>
     <div class=list-group-item>        
-        <!--<div ng-init="key=profile.files?profile.files:profile.projects">-->
-        
         <div ng-init="items=profile.projects||profile.files">
-            {{ (profile.projects || profile.files)  | count}} -> {{ profile.projects && 'project' || 'file' }}
-            
-            <!--{{ profile.projects || profile.files }}-->
+            <div ng-if="!((profile.projects||profile.files)|count)">
+                no {{ profile.files && 'files' || 'projects' }}
+            </div>
+            <div ng-if="((profile.projects||profile.files)|count)>=2">                                    
+                {{ (profile.projects || profile.files)  | count}} {{ profile.projects && 'projects' || 'files' }}
+            </div>
+            <div ng-if="((profile.projects||profile.files)|count)==1">                                    
+                {{ (profile.projects || profile.files)  | count}} {{ profile.projects && 'project' || 'file' }}
+            </div>
             <ul ng-if="profile.projects" class="list-unstyled list-inline">
                 <li ng-repeat="proj in profile.projects">
                     <a ng-href="/project/profile/{{proj.$oid}}">project page</a>
@@ -16,16 +33,17 @@
             </ul>
             <ul ng-if="profile.files" class="list-unstyled">
                 <li ng-repeat="file in profile.files">
-                    File {{ $index }}: {{ file.name }}
-                    <a ng-href="/file/{{ file.oid }}/edit">edit</a>                       
+                    <a 
+                        ng-href="/file/{{ file.oid || file._id.$oid }}/edit"
+                        class="btn btn-link"
+                    >{{ $index+1 }}: {{ file.name }}
+                    </a>
                 </li>
-                <!--
-                <li ng-repeat="itm in val track by $index">
-                    {{ itm.name }}
-                    <a ng-if="key=='projects'" ng-href="/project/profile/{{ itm.$oid }}">--- go</a>
-                    <a ng-if="key=='files'" ng-href="/file/{{ itm.oid }}/edit">--- edit</a>
+                    <a 
+                        ng-if="key=='files'" 
+                        ng-href="/file/{{ itm.oid }}/edit"
+                    >edit</a>
                 </li>
-                -->
             </ul>
         </div>                               
         
