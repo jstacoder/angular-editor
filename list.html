@@ -7,10 +7,16 @@
                 <a ng-click="removeProjectMode()" class="btn btn-danger btn-square">Remove project</a>
             </div>
             <div class=col-md-4>
-                <h2 class=lead ng-show="removeMode">Select projects to remove</h2>
+                <h1 class=lead ng-show="removeMode">Select projects to remove</h1>
+                <h1 class=lead ng-show="removeError">There was an error removing the project</h1>
                 <ul class="inline-block list-unstyled">
                     <li ng-repeat="itm in coll" class="inline-block">
-                        <a ng-click="checkMode($event)" ng-href="{{ getUrl(itm) }}" class="btn btn-square btn-default btn-lg">{{ itm.name ? itm.name : itm.username }}</a>
+                        <a ng-click="checkMode($event,itm._id.$oid)" ng-href="{{ getUrl(itm) }}" class="btn btn-square btn-default btn-lg">{{ itm.name ? itm.name : itm.username }}</a>
+                        <div ng-if="item == 'project'" class=row>
+                            <div class=col-md-12>
+                                <p>Files: {{ itm.files | count }}</p>
+                            </div>
+                        </div>
                     </li>
                 </ul>
                 <a href="/dash" class="btn btn-default">Back</a>

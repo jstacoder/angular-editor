@@ -8,6 +8,24 @@
                 }
                 .btn-square {
                     border-radius:0px;
+                    min-width:180px;
+                }
+                .dropdown {
+                    cursor:pointer;
+                }
+                .navbar-login{
+                    width: 305px;
+                    padding: 10px;
+                    padding-bottom: 0px;
+                }
+                .navbar-login-session{
+                    padding: 10px;
+                    padding-bottom: 0px;
+                    padding-top: 0px;
+                }
+
+                .icon-size{
+                    font-size: 87px;
                 }
         </style>
     </head>
@@ -17,17 +35,18 @@
             <ng-view></ng-view>
             <tz-footer></tz-footer>
         </div>
-        <script src="angular.js"></script>
+        <script src="angular.min.js"></script>
         <script src="ui-bootstrap-tpls.js"></script>
         <script src="angular-route.js"></script>
         <script src="angular-strap.js"></script>
         <script src="angular-strap.tpl.js"></script>
         <script src="alert.js"></script>
         <script src="alert.tpl.js"></script>
-        <script src="auth.js"></script>
+        <!--<script src="auth.js"></script>-->
         <script src="ace.js"></script>
         <script src="ui-ace.js"></script>
-        <script src="new.js"></script>
+        <!--<script src="new.js"></script>-->
+        <script src="main.min.js"></script>
          <script type="text/ng-template" id="deleteProjectModal.html">
             <div class="modal-header">
                 <h3 class="modal-title">{{ title }}</h3>
@@ -63,6 +82,17 @@
             </div>
             <div class="modal-footer">
             <button class="btn btn-primary" ng-click="$close(file.name)">OK</button>
+            <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
+            </div>
+         </script>
+         <script type="text/ng-template" id="myLoginModal.html">
+            <div ng-init='name = $root.getUserName()' class="modal-header">
+                <h3 class="modal-title">Welcome {{ name }}</h3>
+            </div>
+            <modal-content content='ccccccc'></modal-content>
+            <p>Go to profile page?</p>
+            <div class="modal-footer">
+            <button class="btn btn-primary" ng-click="$close(name)">OK</button>
             <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
             </div>
          </script>

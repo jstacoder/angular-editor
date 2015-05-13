@@ -15,29 +15,59 @@
         </div>
         </div>
     </div>
+  
     <div class=list-group-item>        
         <div ng-init="items=profile.projects||profile.files">
             <div ng-if="!((profile.projects||profile.files)|count)">
-                no {{ profile.files && 'files' || 'projects' }}
+                no 
+                {{ 
+                    profile.files && 
+                    'files' || 
+                    'projects' 
+                 }}
             </div>
             <div ng-if="((profile.projects||profile.files)|count)>=2">                                    
-                {{ (profile.projects || profile.files)  | count}} {{ profile.projects && 'projects' || 'files' }}
+                {{ 
+                    (profile.projects ||
+                    profile.files)  | 
+                    count | 
+                    update 
+                 }} 
+                 {{ 
+                    profile.projects && 
+                    'projects' || 
+                    'files' 
+                  }}
             </div>
             <div ng-if="((profile.projects||profile.files)|count)==1">                                    
-                {{ (profile.projects || profile.files)  | count}} {{ profile.projects && 'project' || 'file' }}
+                {{ 
+                    (profile.projects || 
+                    profile.files)  | 
+                    count | 
+                    update 
+                 }} 
+                 {{ 
+                    profile.projects && 
+                    'project' || 
+                    'file' 
+                  }}
             </div>
             <ul ng-if="profile.projects" class="list-unstyled list-inline">
                 <li ng-repeat="proj in profile.projects">
-                    <a ng-href="/project/profile/{{proj.$oid}}">project page</a>
+                    <a 
+                        ng-href="/project/profile/{{proj._id.$oid}}" 
+                        class="btn btn-link btn-lg">{{ proj.name }}</a>
                 </li>    
             </ul>
-            <ul ng-if="profile.files" class="list-unstyled">
-                <li ng-repeat="file in profile.files">
+            <ul ng-if="profile.files" class="list-group">
+                <li ng-repeat="file in profile.files" class=list-group-item>
                     <a 
                         ng-href="/file/{{ file.oid || file._id.$oid }}/edit"
                         class="btn btn-link"
-                    >{{ $index+1 }}: {{ file.name }}
-                    </a>
+                        >{{ $index+1 }}: {{ file.name }}  </a>
+                        <close-btn 
+                            proj-id="{{(file.oid || file._id.$oid)}}"
+                        ></close-btn>          
                 </li>
                     <a 
                         ng-if="key=='files'" 
@@ -45,8 +75,7 @@
                     >edit</a>
                 </li>
             </ul>
-        </div>                               
-        
+        </div>                                       
     </div>
 </div>
 <a ng-href="/{{ item }}/list" class="btn btn-default">back</a>
