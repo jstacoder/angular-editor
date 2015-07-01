@@ -1,5 +1,0 @@
-setup.py
-angular_editor.egg-info/PKG-INFO
-angular_editor.egg-info/SOURCES.txt
-angular_editor.egg-info/dependency_links.txt
-angular_editor.egg-info/top_level.txt

@@ -1,3 +1,0 @@
-<div>
-    <span ng-x="'an inner string'"></span>
-</div>
