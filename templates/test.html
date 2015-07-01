@@ -1,0 +1,23 @@
+<h1 class=page-header>test</h1>
+<code>
+<div class=row>
+    <div class="col-md-3 col-md-offset-3">
+        <h2>Users</h2>
+        <ul class=list-unstyled>
+            <li ng-repeat="user in users">
+                <p>Name: {{ user.username || user.name }}</p>
+                <p>Projects: {{ user.projects | count }}</p>
+            </li>
+        </ul>
+    </div>
+    {{ collectUsers() }}
+    <div class=col-md-5>
+        <h2>Projects</h2>
+        <ul class=list-unstyled>
+            <li ng-repeat="proj in projects">
+                <p>Name: {{ proj.name }}</p>
+                <p>Files: {{ proj.files | count }}</p>
+           </li>
+        </ul>
+    </div>
+</code>

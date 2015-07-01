@@ -1,7 +1,7 @@
 <html ng-app='editor.app'>
     <head>
         <base href="/" />
-        <link rel=stylesheet href=bootstrap.css />
+        <link rel=stylesheet href=/vendor/bootstrap/bootstrap.css />
         <style>
                 .inline-block {
                     display:inline-block;
@@ -27,26 +27,65 @@
                 .icon-size{
                     font-size: 87px;
                 }
+                /*.close-box {
+                    vertical-align:middle;
+                    padding:20px;
+                    margin-top:-20px;
+                    margin-bottom:-17px;
+                    position:absolute;
+                    left:87%;
+                    top:31%;
+                    cursor:pointer;
+                    border-top:1px solid aliceblue;
+                    border-bottom:1px solid aliceblue;
+                }*/
+                .hover .close{
+                      color: #000;
+                      text-decoration: none;
+                      cursor: pointer;
+                      filter: alpha(opacity=50);
+                      opacity: .5;
+                }
         </style>
     </head>
-    <body>
-        <tz-nav></tz-nav>
+    <body>        
+        <tz-nav></tz-nav>    
         <div class=container>
             <ng-view></ng-view>
             <tz-footer></tz-footer>
         </div>
-        <script src="angular.min.js"></script>
-        <script src="ui-bootstrap-tpls.js"></script>
-        <script src="angular-route.js"></script>
-        <script src="angular-strap.js"></script>
-        <script src="angular-strap.tpl.js"></script>
-        <script src="alert.js"></script>
-        <script src="alert.tpl.js"></script>
-        <!--<script src="auth.js"></script>-->
-        <script src="ace.js"></script>
-        <script src="ui-ace.js"></script>
-        <!--<script src="new.js"></script>-->
-        <script src="main.min.js"></script>
+        <accordion ng-controller="CollapseCtrl as ctrl" close-others="ctrl.oneAtATime">
+            <accordion-group 
+                heading="Static Header, initially expanded" 
+                is-open="ctrl.status.isFirstOpen" 
+                is-disabled="ctrl.status.isFirstDisabled"
+            >
+                This content is straight in the template.
+          </accordion-group>
+          <accordion-group 
+                ng-repeat="group in ctrl.groups"
+                heading="{{group.title}}" 
+          >                                
+            {{group.content}}
+          </accordion-group>
+          <accordion-group heading="Dynamic Body Content">
+            <p>The body of the accordion group grows to fit the contents</p>
+            <button class="btn btn-default btn-sm" ng-click="ctrl.addItem()">Add Item</button>
+            <div ng-repeat="item in ctrl.items">{{item}}</div>
+          </accordion-group>
+        <accordion-group is-open="ctrl.status.open">
+        <accordion-heading>
+        I can have markup, too! <i class="pull-right glyphicon" ng-class="{'glyphicon-chevron-down': ctrl.status.open, 'glyphicon-chevron-right': !ctrl.status.open}"></i>
+        </accordion-heading>
+        This is just some content to illustrate fancy headings.
+        </accordion-group>
+    </accordion>
+        <script src="vendor/angular/angular.js"></script>
+        <script src="vendor/angular-route/angular-route.js"></script>
+        <script src="vendor/ace-builds/src-noconflict/ace.js"></script>
+        <script src="vendor/angular-ui-bootstrap/ui-bootstrap-tpls.js"></script>
+        <script src="vendor/angular-ui-ace/ui-ace.js"></script>
+        <script src="vendor/main/main-min.js"></script>
          <script type="text/ng-template" id="deleteProjectModal.html">
             <div class="modal-header">
                 <h3 class="modal-title">{{ title }}</h3>
@@ -67,6 +106,9 @@
                 <input type=text ng-model="project.name" class="input-sm form-control"/>
                 <span ng-bind="project.name"></span>
             </div>
+            <ul>
+                <li ng-repeat="item in items">{{ item }}</li>
+            </ul>
             <div class="modal-footer">
             <button class="btn btn-primary" ng-click="$close(project.name)">OK</button>
             <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
@@ -94,6 +136,17 @@
             <div class="modal-footer">
             <button class="btn btn-primary" ng-click="$close(name)">OK</button>
             <button class="btn btn-warning" ng-click="$dismiss('fail')">Cancel</button>
+            </div>
+         </script>
+         <script type="text/ng-template" id="myLoginErrorModal.html">
+            <div class="modal-header">
+                <h3 class="modal-title">Error logging in</h3>
+            </div>
+            <div class=modal-body>
+                <p>Please Try again</p>
+            </div>
+            <div class="modal-footer">
+            <button class="btn btn-primary" ng-click="$close()">OK</button>
             </div>
          </script>
     </body>

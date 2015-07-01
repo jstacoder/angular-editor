@@ -1,0 +1,1 @@
+{ "test":"coffee -p -b test.coffee  > test.js && nodejs ./node_modules/node-ng/node-ng.js test.js"}

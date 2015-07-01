@@ -16,6 +16,7 @@ def load_db(uri):
     return base
 
 _Model = load_db('mysql+pymysql://editor:editor@localhost:3306/editor_test')
+#_Model = load_db('postgresql://ang:editor@localhost:5432/editor')
 #_Model = load_db('sqlite:///test.db')
 
 
@@ -120,17 +121,60 @@ class Project(Model):
             _id=self._id,
         )
 
+class Folder(Model):
+    __table_args__ = (
+        (sa.UniqueConstraint('name','project_id')),
+    )
+
+    name = sa.Column(sa.String(255),nullable=False)
+    project_id = sa.Column(sa.Integer,sa.ForeignKey('projects.id'))
+    project = orm.relationship('Project',backref=orm.backref(
+        'folders',lazy='dynamic'))
+    files = orm.relationship('Document',lazy='dynamic')
+    parent = orm.relationship('Folder',backref=orm.backref('children',lazy='dynamic'),remote_side='folders.c.id')
+    parent_id = sa.Column(sa.Integer,sa.ForeignKey('folders.id'))
+
+    
+    @classmethod
+    def add_default_dir(cls,proj_id,**kwargs):
+        if not 'name' in kwargs:
+            kwargs['name'] = 'default'
+        i = cls(**kwargs)
+        i.project_id = proj_id
+        i.save()
+
+        
+
+    
+
 class Document(Model):
     __table_args__ = (
         (sa.UniqueConstraint('title','project_id')),
     )
     id = sa.Column(sa.Integer,primary_key=True)
+    folder_id = sa.Column(sa.Integer,sa.ForeignKey('folders.id'))
+    folder = orm.relationship('Folder')
     title = sa.Column(sa.String(255))
     project_id = sa.Column(sa.Integer,sa.ForeignKey('projects.id'))
     project = orm.relationship('Project')
     content = sa.Column(sa.Text)
     content_hash = sa.Column(sa.Text)
     contributors = orm.relationship('User',secondary='users_documents',lazy='dynamic')
+
+    @property
+    def text(self):
+        return self.content
+
+    @text.setter
+    def text(self,data):
+        self.content = data
+        self._set_hash(data)
+        self.save()
+
+
+    @property
+    def changed(self):
+        return new(ALG,self.content).hexdigest() != self.content_hash
 
 
     def __init__(self,*args,**kwargs):
@@ -190,6 +234,10 @@ class User(Model):
     emails = orm.relationship('Email',lazy='dynamic')
     role_id = sa.Column(sa.Integer,sa.ForeignKey('roles.id'))
     role = orm.relationship('Role')
+
+    @property
+    def _is_authenticated(self):
+        return True
 
     @property
     def gravatar_url(self):

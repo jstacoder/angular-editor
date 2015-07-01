@@ -1,0 +1,24 @@
+{
+  "test": "coffee -p -b test.coffee  > test.js && nodejs ./node_modules/node-ng/node-ng.js test.js",
+  "name": "angular-editor",
+  "version": "0.0.0",
+  "description": "ERROR: No README data found!",
+  "main": "a.js",
+  "dependencies": {
+    "node-ng": "^0.0.5",
+    "q": "^1.4.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+     "test":"coffee -p -b test.coffee  > test.js && nodejs ./node_modules/node-ng/node-ng.js test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jstacoder/angular-editor.git"
+  },
+  "author": "Kyle Roux <kyle@level2designs.com> (https://github.com/jstacoder)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jstacoder/angular-editor/issues"
+  }
+}

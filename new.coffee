@@ -3,12 +3,64 @@
 app = angular.module 'editor.app',[
   'ngRoute'
   'ui.ace'
-  'mgcrea.ngStrap'
   'ui.bootstrap'
   'auth.app'
 ]
 
 app.constant 'apiPrefix','/api/v1'
+
+app.service '$uiModal',($modal)->
+    return $modal
+
+app.controller 'CollapseCtrl',($scope)->
+    self = @
+    self.oneAtATime = true
+    group1 =
+        title: 'Dynamic Group Header - 1'
+        content: 'Dynamic Group Body - 1'
+    group2 =
+        title: 'Dynamic Group Header - 2'
+        content: 'Dynamic Group Body - 2'
+    self.groups = [
+        group1
+        group2
+    ]
+    self.items = [
+        'Item 1'
+        'Item 2'
+        'Item 3'
+    ]
+    self.addItem = ->
+        newItemNo = $scope.items.length + 1
+        $scope.items.push 'Item ' + newItemNo
+        return
+        
+    self.status =
+        isFirstOpen: true
+        isFirstDisabled: false
+    return
+        
+
+
+app.factory 'profile',()->
+    return (type)->
+        self = @
+        collType = "#{type}s"
+        self[collType] = {}
+        self.collection = self[collType]
+        self.type = type
+
+        self.addItem = (itm)->
+            self.collection.push itm
+            return
+        self.removeItem = (itm)->
+            if itm in self.collection
+                idx = self.collection.indexOf itm
+                self.collection.splice idx,1
+            return
+        self.getType = ()->
+            return self.type
+        return self
 
 app.factory 'aceLoaded',()->
     return (_editor)->
@@ -19,16 +71,53 @@ app.factory 'aceLoaded',()->
         return
 
 app.directive 'closeBtn',(removeFile)->
+    require:"closeBtn"
     restrict:'E'
     template:"<span class='close'>X</span>"
-    link:(scope,ele,attrs)->
+    controller:($scope,$element,$attrs)->
+        self = @
+        self.removeItem = ()->
+            $element.parent().parent().parent().remove()
+            console.log 'starting removal of file:',$attrs['projId']
+            removeFile($attrs['projId']).then (res)->
+                console.log 'received confirmation of file removal'
+                $scope.$emit('item:delete:file',parseInt($attrs['projId']))
+            return
+        return
+    link:(scope,ele,attrs,ctrl)->
         console.log attrs
         proj_id = attrs['projId']
         ele.on 'click', ()->
-            ele.parent().remove()
-            removeFile proj_id
+            ctrl.removeItem()
             return
         return
+
+app.directive 'ngHover',()->
+    require:"closeBtn"
+    restrict:"A"
+    link:(scope,ele,attrs,ctrl)->
+        console.log ele
+        ele.on('mouseenter',(e)->
+            console.log 'entering',e
+            _e = ele.children().children()[0]
+            console.log _e
+            ele.addClass 'hover'
+            #_e.focus()
+            return
+        )
+        ele.on('mouseleave',(e)->
+            console.log 'leaving',e
+            ele.removeClass 'hover'
+            return
+        )
+        ele.on('click',(e)->
+            #_e = ele.children().children()[0]
+            #_e.trigger('click')
+            ctrl.removeItem()
+            return
+        )
+        return
+
 
 app.filter 'update',()->
     return (data)->
@@ -74,11 +163,26 @@ app.value 'editorModes',
     'c':'c'
     'h':'c'
 
+app.filter 'fileType',(editorModes)->
+    return (name)->
+        _ext = name.split('.')[-1..][0]
+        rtn = 'unkknown'
+        angular.forEach editorModes,(val,key)->
+            ext = key
+            console.log ext
+            console.log _ext
+            console.log val
+            console.log name
+            if ext == _ext
+                rtn = val
+            return
+        return rtn
+
 app.factory 'getMode',(editorModes)->
     return (ext)->
         return editorModes[ext]
 
-app.directive 'size',()->
+app.directive 'changeSize',()->
     restrict:"A"
     scope:
         size:"@"
@@ -92,12 +196,12 @@ app.directive 'tzFooter',()->
         viewCount.then (res)->
             $scope.vc = res.data.count
 
-app.directive 'tzNav',()->
+app.directive 'tzNav',(authService)->
     restrict:"E"
     templateUrl:"navbar.html"
     replace:true
-    require:"tzNav"
-    link:($scope,ele,attrs,authService)->
+    require:"?tzNav"
+    link:($scope,ele,attrs,ctrl)->
       $scope.$on('auth:logout',()->
           authService.reset()
           return
@@ -118,6 +222,30 @@ app.directive 'tzNav',()->
       return
 
 
+app.factory 'updateCollection',($q,collections)->
+    return (scope)->
+        def = $q.defer()
+        collections(scope.item).then (res)->
+            scope.coll = res
+            return def.resolve scope
+        return def.promise
+
+app.factory 'processLogin',($q,login)->
+    return (creds)->
+        def = $q.defer()
+        login(creds.username,creds.password).then (res)->
+            console.log 'loggin in',res
+            if res and not angular.isObject(res)
+                def.resolve res
+            else
+                def.reject 'error'
+            return
+        ,(err)->
+            console.log 'Rejecting again@!'
+            return def.reject err
+        return def.promise
+        
+
 app.factory 'viewCount',($http,apiPrefix)->
     return $http.get "#{apiPrefix}/viewcount"
 
@@ -125,7 +253,7 @@ app.factory 'collections',(collectUsers,projectService)->
   return (itm)->
         rtn =
             user:collectUsers
-            project:projectService.getProjects
+            project:projectService.getProjectsPromise
         return rtn[itm]()
 
 
@@ -147,26 +275,54 @@ app.config ($routeProvider,$locationProvider)->
                 return logout()
     ).when('/login',
       templateUrl:'auth.html'
-      controller:($scope,login,$uiModal)->
-        $scope.newuser =
-            username:''
-            email:''
-            password:''
-            confirm:''
-          $scope.user =
-            email:''
-            password:''
+      controller:($scope,processLogin,$uiModal,$window,$location)->
+        $scope.resetForm = ()->
+            $scope.newuser =
+                username:''
+                email:''
+                password:''
+                confirm:''
+              $scope.user =
+                email:''
+                password:''
+            return
+        $scope.resetForm()
         $scope.login = ()->
-            login($scope.user.email,$scope.user.password).then (res)->
-                
-                modal = $uiModal.open
-                    templateUrl: 'myLoginModal.html'
-                    scope:$scope.$new()
+            processLogin({username:$scope.user.email,password:$scope.user.password}).then (res)->
+                console.log 'logging ???',res
+                if res
+                    template = 'myLoginModal.html'
+                else
+                    template = 'myLoginErrorModal.html'
 
+                modal = $uiModal().open
+                    templateUrl: template
+                    scope:$scope.$new()
                 modal.result.then (res)->
+                    $location.path('/project/list').replace()
+                    $window.location.href = $location.path()
                     console.log res
                     return
-                
+                  ,(err)->
+                    console.log 'ERROR:=-->',err
+                    return
+                return
+            ,(err)->
+                template = 'myLoginErrorModal.html'
+                modal = $uiModal.open
+                    templateUrl: template
+                    scope:$scope.$new()
+                modal.result.then (res)->
+                    $scope.resetForm()
+                    console.log res
+                    return
+                ,(err)->
+                    console.log 'ERROR:=-->',err
+                    return
+                console.log 'NewError-0->',err
+                return
+            return
+               
         $scope.loginMode = true
         $scope.setLoginMode = ()->
             $scope.registerMode = false
@@ -230,18 +386,17 @@ app.config ($routeProvider,$locationProvider)->
             return
     ).when('/:item/list',
         templateUrl:'list.html'
-        controller:($uiModal,$scope,$routeParams,collectProjects,collectUsers,collections,addProject,removeProject,authService,projectService)->
+        controller:($uiModal,$scope,$routeParams,addProject,removeProject,authService,projectService,updateCollection)->
             console.log $routeParams
             console.log $routeParams.item
             $scope.item = $routeParams.item
-            #collectProjects().then (r)->
-            #  console.log('result---->',r)
-            #  $scope.coll = r
-            #  return
             updateColl = ()->
-              $scope.coll = projectService.getProjects()
+              updateCollection($scope)
               return
             updateColl()
+            $scope.$watch('coll',(newColl)->
+                updateColl()
+            )
             $scope.checkMode = ($event,proj_id)->
                 console.log($event)
                 if $scope.removeMode
@@ -274,29 +429,20 @@ app.config ($routeProvider,$locationProvider)->
             $scope.removeProjectMode = ()->
                 $scope.removeMode = true
                 return
-            $scope.testVar = 'testing 1,2,3'
-            $scope.items = ['x','y','a']
-            #collections($scope.item).then (res)->
-            #    console.log res
-            #    $scope.coll = res
             $scope.getUrl = (itm)->
                 return "#{$scope.item}/profile/#{itm._id.$oid}"
             $scope.addProject = ()->
                 userData = authService.getData()
                 console.log('User:--->',userData)
-                _s = $scope.$new({testVar:'cccccc'})
+                _s = $scope.$new(false,$scope)
                 _s.testVar = 'ttttttttt'
                 modal = $uiModal.open
                     controller:($scope,$modalInstance)->
                         $scope.project = {}
                         $scope.project.name = ''
-
                     controllerAs:'ng-controller as ctrl'
-                    title:'testModal'
+                    title:'Add a project'
                     templateUrl: 'myModalContent.html'
-                    resolve:
-                        items:()->
-                            return $scope.items
                 modal.result.then( (res)->
                     console.log('proj data--->',res)
                     addProject(res).then (r)->
@@ -312,32 +458,43 @@ app.config ($routeProvider,$locationProvider)->
             return
     ).when('/:item/profile/:id',
         templateUrl:'profile.html'
-        controller:($uiModal,$scope,$routeParams,collections,collectUsers,collectProjects,addFile,back,removeFile)->
-            colls =
-                user:collectUsers
-                project:collectProjects
+        controller:($q,$rootScope,$modal,$scope,$routeParams,updateCollection,addFile,back,removeFile)->
+            $rootScope.$on 'item:delete:file',(e,file_id)->
+                console.log "deleting file ##{file_id}"
+                $scope.removeFileFromProfile file_id
+                return
+
+            $scope.removeFileFromProfile = (file_id)->
+                idx = -1
+                angular.forEach $scope.profile.files,(itm)->
+                    console.log "#{file_id} vs #{itm._id.$oid}"
+                    if file_id == itm._id.$oid
+                        idx = $scope.profile.files.indexOf itm
+                    return
+                if idx > -1 then (($scope.profile.files.splice(idx,1) and true) or 'error removing file')  else false
             $scope.back = back
             $scope.item = $routeParams.item
-            console.log $scope.item
             $scope.route_id = $routeParams.id
-            console.log $scope.route_id
             $scope.deleteConfirm = (file_id)->
                 removeFile(file_id).then (res)->
+                    $scope.removeFileFromProfile file_id
                     if res
-                        collectProjects().then (r)->
-                            $scope.coll = r
+                        $q.when(updateCollection($scope)).then ()->
                             angular.forEach $scope.coll, (itm)->
                                 if itm._id.$oid == parseInt $scope.route_id
+                                    console.log "setting profile to item ##{itm._id.$oid}"
                                     $scope.profile = itm
                                 return
+                            return
+                        
                     return
                 return
             $scope.addFile = ()->
-                modal = $uiModal.open
+                modal = $modal.open
                     controller:($scope,$modalInstance)->
                         $scope.file = {}
                         $scope.file.name = ''
-                    title:'testModal'
+                    title:'Add a new file'
                     templateUrl: 'myFileModal.html'
                 modal.result.then( (res)->
                     console.log res
@@ -350,31 +507,29 @@ app.config ($routeProvider,$locationProvider)->
                     console.log err
                     return
                 )
-
-            $scope.getProjectName = (p)->
-                project(p._id.$oid).then (res)->
-
-            if $scope.item == 'user'
-                collectUsers().then (res)->
-                    console.log res
-                    $scope.coll = res
-                    console.log $scope.coll
-                    angular.forEach $scope.coll, (itm)->
-                        console.log itm,$scope.route_id
-                        if itm._id.$oid == parseInt $scope.route_id
-                            $scope.profile = itm
-                        return
                 return
-            else
-                collectProjects().then (res)->
-                    console.log res
-                    $scope.coll = res
-                    angular.forEach $scope.coll, (itm)->
-                        console.log itm,$scope.route_id
-                        if itm._id.$oid == parseInt $scope.route_id
-                            $scope.profile = itm
-                        return
+            $q.when(updateCollection($scope)).then ()->
+            #if $scope.item == 'user'
+            #    collectUsers().then (res)->
+            #        console.log res
+            #        $scope.coll = res
+                angular.forEach $scope.coll, (itm)->
+                    if itm._id.$oid == parseInt $scope.route_id
+                        $scope.profile = itm
+                        console.log "setting profile to item##{$scope.route_id}"
+                    return
                 return
+            #else
+            #    collectProjects().then (res)->
+            #        console.log res
+            #        $scope.coll = res
+            #        angular.forEach $scope.coll, (itm)->
+            #            console.log itm,$scope.route_id
+            #            if itm._id.$oid == parseInt $scope.route_id
+            #                $scope.profile = itm
+            #                console.log "setting profile to item##{$scope.route_id}"
+            #            return
+            #    return
     )
     .when('/dash',
         templateUrl:"dash.html"
@@ -389,21 +544,21 @@ app.config ($routeProvider,$locationProvider)->
             return
     ).when('/file/:id/edit',
         templateUrl:'edit.html'
-        controller:($alert,$scope,$routeParams,fileService,$q,File,saveFile,getMode,aceCfg)->
+        controller:(ngAlert,$scope,$routeParams,fileService,$q,File,saveFile,getMode,aceCfg)->
             $scope.save = (content)->
                 data =
                     content : content
                     name : $scope.file.name
                 saveFile($scope.file._id.$oid,data).then (res)->
                     console.log(res.data)
-                    alert = $alert
+                    alert = ngAlert
                         title: 'Saved'
                         content: "You successfully saved #{res.data.obj.name}"
                         placement: 'top'
                         type: 'success'
                         show: true
-                        duration:3
-                        container:angular.element(document.getElementsByClassName('container')[0])
+                        duration:9
+                        container:angular.element(document.getElementById('alert-container'))
             setCfg = (opts)->
                 angular.extend aceCfg, opts
                 $scope.cfg = aceCfg
@@ -509,7 +664,7 @@ app.factory 'User',($http,apiPrefix)->
 
 app.factory 'users',($http,apiPrefix)->
     return ()->
-        return $http.get "#{apiPrefix}/user"
+        return $http.get "#{apiPrefix}/get/user"
 
 app.factory 'Project',($http,apiPrefix)->
     return (oid)->
@@ -520,7 +675,7 @@ app.factory 'projects',($http,apiPrefix)->
         return $http.get "#{apiPrefix}/project"
 
 app.service 'projectService',($q,Project,projects,addProject,removeProject)->
-  self = @  
+  self = @
   _projects = []
     
   projects().then (res)->
@@ -530,6 +685,10 @@ app.service 'projectService',($q,Project,projects,addProject,removeProject)->
     return
   self.getProjects = ()->
     return _projects
+  self.getProjectsPromise = ()->
+    def = $q.defer()
+    def.resolve self.getProjects()
+    return def.promise
   self.getProject = (pid)->
     return Project pid
   self.addProject = (name)->

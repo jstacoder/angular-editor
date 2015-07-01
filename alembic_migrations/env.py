@@ -15,6 +15,10 @@ fileConfig(config.config_file_name)
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata 
+import sys
+section = config.get_section('alembic')
+here = section.get('here')
+sys.path.insert(0,here)
 from sql_app import User,Project,Document
 User.metadata.bind = User.engine
 User.engine.echo = True

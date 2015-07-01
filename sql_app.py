@@ -1,4 +1,4 @@
-from flask import Flask,request,session,send_file,make_response,Blueprint,jsonify,g
+from flask import Flask,request,session,send_file,make_response,Blueprint,jsonify,g,redirect
 from redis import Redis
 from functools import partial,wraps
 import os
@@ -6,9 +6,19 @@ import jwt
 import json
 import pickle
 import requests
-from appdb import User,Project,Document,Email
+from shortuuid import uuid
+from bcrypt import hashpw, gensalt
+from appdb import User,Project,Document,Email,Model,Task,Folder
 
 cache = Redis()
+
+#
+# 60 min * 24 hrs * 7 days
+#
+TOKEN_VALID_FOR = 60*24*7
+EXP_ARG = dict(ex=TOKEN_VALID_FOR)
+
+
 
 MODEL_DICT = dict(
     file=Document,
@@ -20,6 +30,45 @@ MODEL_DICT = dict(
 
 class Name(object):
     name = 'Fail'
+
+
+
+auth = Blueprint('auth',__name__,url_prefix='/auth')
+
+def make_session(user):
+    key = getattr(user,'uuid',None) or uuid(name=user.id)
+    val = True
+    cache.set(key,val,**EXP_ARG)
+
+
+_id_by_name = lambda name: User.query.filter(
+                                User.username == name
+                            ).first().id
+pw = lambda data: hashpw(data,gensalt())
+def seed_db():
+    Model.metadata.bind = Model.engine
+    Model.metadata.bind.execute(
+            User.__table__.insert().values([
+                dict(
+                    username='jstacoder',_password_hash=pw('jstacoder')
+                ),
+                dict(
+                    username='jessicarrr',_password_hash=pw('jessicarrr')
+                ),
+            ])
+    )
+    users = [
+        _id_by_name('jstacoder'),
+        _id_by_name('jessicarrr')
+    ]
+    Project(name='projA',users=users).save()
+    Project(name='projB',users=users).save()
+    Project(name='projC',users=[users[0]]).save()
+    Project(name='projD',users=[users[1]]).save()
+    Email(address='jstacoder@gmail.com',user_id=_id_by_name('jstacoder')).save()
+    Email(address='jessicarrr@gmail.com',user_id=_id_by_name('jessicarrr')).save()
+
+
 
 nme = Name()
 def secure_route(f):
@@ -47,10 +96,17 @@ def get_token(user):
                             x.address for x in user.emails
                         ],
                         avatar = user.gravatar_url,
+                        uuid = uuid(name=user.id),
                     ),
-                    str(user.id)
+                    uuid(name=user.id)
     )
 
+
+
+
+def verify_token(uid,token):
+    return jwt.decode(token,uid)
+    
 def read_token(token,key):
     return jwt.decode(token,key)
 
@@ -116,9 +172,26 @@ frontend = Blueprint('front',__name__,url_prefix='')
 api = Blueprint('api',__name__,url_prefix='/api/v1')
 
 
+'''
+@app.route('/<catch>')
+@app.route('/<catch>/<path:more>')
+@app.route('/<catch>/<more>/<mmore>')
+def catch(catch,more=None,mmore=None):
+    if more is None or (
+            '.json' in catch or 
+            '.html' in catch or 
+            '.js' in catch or 
+            '.css' in catch or 
+            '.ttf' in catch or 
+            '.woff' in catch):
+        try:
+            return send_file(catch)
+        except IOError,e:
+            pass
+    return make_response(open('index2.html').read())
+'''
 
-
-@app.before_request
+#@app.before_request
 def check_request_cache():
     session['CACHE_REQUEST'] = False
     CACHE_KEY_PREFIX = 'AEA:CACHE:{}'
@@ -145,7 +218,7 @@ def check_request_cache():
         print '*****using cache******'
         return make_response(res)
 
-@app.after_request
+#@app.after_request
 def af(r):
     
     from coffeescript import compile as coffee
@@ -254,9 +327,14 @@ def _auth_login():
             login(user.id)
             rtn = jsonify(token=get_token(user))
         else:
-            rtn = jsonify(token=False,error="incorrect authentication")
+            rtn = make_response(json.dumps(dict(success=False,error=True)))
+            rtn.headers['Content-Type'] = 'Application/Json'
+            # jsonify(token=False,error="incorrect authentication"),301
     else:
-        rtn = jsonify(token=False,error="incorrect authentication")
+        rtn = make_response(json.dumps(dict(success=False,error=True)))
+        rtn.headers['Content-Type'] = 'Application/Json'
+        # jsonify(token=False,error="incorrect authentication"),301
+        #rtn = False #jsonify(token=False,error="incorrect authentication"), 301
     return rtn
 
 @app.route('/')
@@ -330,8 +408,8 @@ def save():
 def _projects():
     print g.get('user',nme).name
     user = get_user()
-    print user.projects.all() if user is not None else ''
-    if user is not None:
+    print user.projects.all() if user._is_authenticated else ''
+    if user._is_authenticated:
         #print [dir(p) for p in user.projects]
         projects = [p.to_json() for p in user.projects.all()]# else Project.objects.get(id=p.id).to_json()]
     else:
@@ -339,8 +417,9 @@ def _projects():
     return jsonify(projects=projects)
 
 
+inner_api = Blueprint('inner_api',__name__,url_prefix='/api/v1/get')
 
-@api.route('/<obj_type>',methods=['GET'])
+@inner_api.route('/<obj_type>',methods=['GET'])
 @secure_route
 def obj_type(obj_type):
     model = dict(
@@ -348,13 +427,15 @@ def obj_type(obj_type):
         project=Project,
         document=Document,
     )[obj_type]
-    objects = model.session.query(model).all()
+    objects = model.get_all()
     res = make_response(
             json.dumps(
                 dict(objects=[o.to_json() for o in objects])
             )
     )
     res.headers['Content-Type'] = 'application/json'
+    res.headers['X-Sent-From'] = 'this dammn functuiobn'
+    res.set_cookie('damnFuncCookie','ahhhhh')
     return res
     #return jsonify(objects=[x.to_json() for x in objects])
 
@@ -390,31 +471,74 @@ def _project():
         p.save()
     return jsonify(project=p.to_json())
 
+
+def login(data):
+    user = User.get_by_email(data.get('email'))
+    if user:
+        return user.check_password(data.get('password')) and user
+
 @api.route('/login',methods=['POST'])
 def _login():
     data = json.loads(request.data)
-    login(data['id'])
-    return jsonify(result='success')
+    user = login(data)
+    if user:
+        make_session(user)
+        token = get_token(user)        
+        rtn = jsonify(result='success',token=token)
+    else:
+        rtn = (jsonify(result='error',error='failed auth'),403)
+    return rtn
+
+
 
 app.register_blueprint(api)
+assets = Blueprint('assets',__name__,url_prefix='/vendor/<asset_dir>/<path:asset>')
 
-@app.route('/fonts/<font_name>')
-def font(font_name):
-    return send_file(os.path.join('fonts',font_name))
+@assets.route('/')
+def _assets(asset_dir,asset=None):
+    if asset is None:
+        asset = asset_dir       
+        asset_dir = None
+    _asset = os.path.join(app.root_path,'vendor',asset_dir,asset)
+    print _asset
+    if os.path.exists(_asset):
+        print _asset,'is good'
+        return send_file(_asset)
 
 
-app.register_blueprint(frontend)
 
-@app.route('/<catch>')
-@app.route('/<catch>/<path:more>')
-@app.route('/<catch>/<more>/<mmore>')
-def catch(catch,more=None,mmore=None):
-    if more is None or ('.html' in catch or '.js' in catch or '.css' in catch or '.ttf' in catch or '.woff' in catch):
-        try:
-            return send_file(catch)
-        except IOError,e:
-            pass
-    return send_file('index2.html')
+@app.before_first_request
+def bf():
+    if request.path == '/login':
+        return send_file('index2.html')
+
+@app.before_request
+def add_auth():
+    print request.blueprint
+    print request.endpoint
+    print request.path
+    if len(request.path.split('.')) == 2:
+        _asset = os.path.join(os.path.realpath(os.getcwd()),request.path)
+        print _asset
+        if os.path.exists(_asset):
+            return send_file(_asset)
+    else:
+        if request.path == '/login':
+            return send_file('index2.html')
+        return make_response('')
+        if request.headers.get('Authentication',None) is not None:
+            token = request.headers['Authentication'].split(' ')[-1]
+            _uuid = jwt.decode(token,verify=False).get('uuid')
+            session['user_id'] = verify_token(token,_uuid).get('id')
+        else:
+            if not request.path == '/login' and (request.blueprint is None or request.blueprint == 'api') and request.blueprint != 'assets':
+                pass
+                return redirect('/login')
+
+
+app.register_blueprint(inner_api)
+app.register_blueprint(assets)
+
 
 if __name__ == "__main__":
     app.run(host='127.0.0.1',port=4555,debug=True)
